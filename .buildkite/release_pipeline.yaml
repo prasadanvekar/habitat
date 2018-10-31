@@ -23,7 +23,7 @@ steps:
       queue: habitat-release
 
   - label: ":windows: :habicat: core/hab"
-    command: .buildkite/scripts/build_windows_release.ps1
+    command: .buildkite/scripts/build_component.ps1 hab
     agents:
       queue: default-windows
     env:

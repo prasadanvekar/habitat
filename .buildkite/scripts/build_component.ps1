@@ -19,7 +19,7 @@ Write-Host "Installing base habitat binary version: $BaseHabVersion"
 $bootstrapDir = "C:\hab-$HabBaseVersion"
 $url = "https://api.bintray.com/content/habitat/stable/windows/x86_64/hab-$($BaseHabVersion)-x86_64-windows.zip?bt_package=hab-x86_64-windows"
 # Stick the hab 
-New-Item -ItemType directory -Path 
+New-Item -ItemType directory -Path $Path
 # download a hab binary to build hab from source in a studio
 Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile hab.zip
 Expand-Archive -Path hab.zip -DestinationPath $bootstrapDir -Force

@@ -204,7 +204,7 @@ set_release_channel() {
 }
 
 get_version() {
-    buildkite-agent meta-data get "version" "${version}"
+    buildkite-agent meta-data get "version"
 }
 
 set_version() {

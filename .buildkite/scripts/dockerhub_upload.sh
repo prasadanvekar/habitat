@@ -8,8 +8,8 @@
 set -euo pipefail
 
 source .buildkite/scripts/shared.sh
-version=$(buildkite-agent meta-data get "version")
-channel=$(buildkite-agent meta-data get "release-channel")
+version=$(get_version)
+channel=$(get_release_channel)
 image_name="habitat/default-studio"
 
 if is_fake_release; then

@@ -190,7 +190,7 @@ has_studio_ident() {
 
 set_studio_ident() {
     local target=$1
-    local version=$2
+    local ident=$2
     buildkite-agent meta-data set "studio-ident-${target}" "${ident}"
 }
 

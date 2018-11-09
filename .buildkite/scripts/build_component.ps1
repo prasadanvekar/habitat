@@ -21,9 +21,6 @@ if($Component.Equals("")) {
 Write-Host "--- Setting source package channel to $SourceChannel"
 $Env:HAB_BLDR_CHANNEL="$SourceChannel"
 
-Write-Host "--- POINT AT ACCEPTANCE!"
-$Env:HAB_BLDR_URL="https://bldr.acceptance.habitat.sh"
-
 Write-Host "--- Installing base habitat binary version: $BaseHabVersion"
 $baseHabExe = [HabShared]::install_base_habitat_binary($BaseHabVersion, $SourceChannel)
 Write-Host "--- Using hab executable at $baseHabExe"

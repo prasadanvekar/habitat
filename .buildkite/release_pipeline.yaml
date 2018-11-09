@@ -31,6 +31,7 @@ steps:
     plugins:
       docker#v2.0.0:
         image: "chefes/windows-base:latest"
+        shell: [ "powershell", "-Command" ]
         environment:
           - HAB_BLDR_CHANNEL
 

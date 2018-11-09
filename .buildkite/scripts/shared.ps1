@@ -4,10 +4,12 @@
 
 class HabShared {
   static [String]install_base_habitat_binary([String]$Version, [String]$Channel) {
+
       if($Version.Equals("latest")) {
           # Get the latest version available from bintray
           $current_protocols = [Net.ServicePointManager]::SecurityProtocol
           $latestVersionURI = ""
+          $downloadUrl = ""
           try {
               [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
               $response = Invoke-WebRequest "https://bintray.com/habitat/$Channel/hab-x86_64-windows/_latestVersion" -UseBasicParsing -ErrorAction Stop
@@ -20,16 +22,16 @@ class HabShared {
           $uriArray = $latestVersionURI.Split("/")
           $targetVersion = $uriArray[$uriArray.Length-1]
           Write-Host "--- Latest version is $targetVersion"
+          $downloadUrl = "https://api.bintray.com/content/habitat/$Channel/windows/x86_64/hab-$targetVersion-x86_64-windows.zip?bt_package=hab-x86_64-windows"
       }
       else {
-          $targetVersion = $Version
+          $targetVersion = $Version.Replace("/", "-")
           Write-Host "--- Targeting version $targetVersion"
+          $downloadUrl = "http://habitat.bintray.com/$Channel/windows/x86_64/hab-$targetVersion-x86_64-windows.zip"
       }
       
       $bootstrapDir = "C:\hab-" + "$targetVersion"
-      
-      $downloadUrl = "https://api.bintray.com/content/habitat/$Channel/windows/x86_64/hab-$targetVersion-x86_64-windows.zip?bt_package=hab-x86_64-windows"
-      
+
       # download a hab binary to build hab from source in a studio
       Write-Host "--- Downloading from $downloadUrl"
       $current_protocols = [Net.ServicePointManager]::SecurityProtocol

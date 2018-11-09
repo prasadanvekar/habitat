@@ -25,9 +25,10 @@ class HabShared {
           $downloadUrl = "https://api.bintray.com/content/habitat/$Channel/windows/x86_64/hab-$targetVersion-x86_64-windows.zip?bt_package=hab-x86_64-windows"
       }
       else {
-          $targetVersion = $Version.Replace("/", "-")
-          Write-Host "--- Targeting version $targetVersion"
-          $downloadUrl = "http://habitat.bintray.com/$Channel/windows/x86_64/hab-$targetVersion-x86_64-windows.zip"
+        # This line of code is silly.
+        $targetVersion = $Version.Replace("/", "-").Replace("\", "-")
+        Write-Host "--- Targeting version $targetVersion"
+        $downloadUrl = "http://habitat.bintray.com/$Channel/windows/x86_64/hab-$targetVersion-x86_64-windows.zip"
       }
       
       $bootstrapDir = "C:\hab-" + "$targetVersion"

@@ -18,6 +18,7 @@
 extern crate ansi_term;
 extern crate glob;
 extern crate habitat_api_client as api_client;
+#[macro_use]
 extern crate habitat_core as hcore;
 extern crate hyper;
 #[macro_use]
@@ -26,6 +27,19 @@ extern crate pbr;
 extern crate petgraph;
 extern crate regex;
 extern crate retry;
+
+extern crate handlebars;
+#[macro_use]
+extern crate lazy_static;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+#[allow(unused_imports)]
+#[macro_use]
+extern crate serde_json;
+extern crate serde_transcode;
+extern crate serde_yaml;
+
 extern crate tempfile;
 extern crate term;
 extern crate time;
@@ -37,6 +51,7 @@ extern crate winapi;
 pub use self::error::{Error, Result};
 
 pub mod command;
+pub mod templating;
 pub mod error;
 pub mod package_graph;
 pub mod ui;

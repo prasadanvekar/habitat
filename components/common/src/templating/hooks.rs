@@ -28,11 +28,10 @@ use hcore::service::ServiceGroup;
 use hcore::{self, crypto};
 use serde::{Serialize, Serializer};
 
-use super::{health, Pkg};
-use error::{Result, SupError};
-use fs;
-use templating::{RenderContext, TemplateRenderer};
-use util::exec;
+use error::{Error, Result};
+use super::{fs, health, RenderContext, TemplateRenderer};
+use super::package::Pkg;
+use super::sys::exec;
 
 #[cfg(not(windows))]
 pub const HOOK_PERMISSIONS: u32 = 0o755;
@@ -326,6 +325,66 @@ impl Hook for InitHook {
             }
             None => {
                 outputln!(preamble service_group, "Initialization failed! '{}' exited without a \
+                    status code", Self::file_name());
+                false
+            }
+        }
+    }
+
+    fn path(&self) -> &Path {
+        &self.render_pair.path
+    }
+
+    fn renderer(&self) -> &TemplateRenderer {
+        &self.render_pair.renderer
+    }
+
+    fn stdout_log_path(&self) -> &Path {
+        &self.stdout_log_path
+    }
+
+    fn stderr_log_path(&self) -> &Path {
+        &self.stderr_log_path
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct InstallHook {
+    render_pair: RenderPair,
+    stdout_log_path: PathBuf,
+    stderr_log_path: PathBuf,
+}
+
+impl Hook for InstallHook {
+    type ExitValue = bool;
+
+    fn file_name() -> &'static str {
+        "install"
+    }
+
+    fn new(service_group: &ServiceGroup, pair: RenderPair) -> Self {
+        InstallHook {
+            render_pair: pair,
+            stdout_log_path: stdout_log_path::<Self>(service_group),
+            stderr_log_path: stderr_log_path::<Self>(service_group),
+        }
+    }
+
+    fn handle_exit<'a>(
+        &self,
+        service_group: &ServiceGroup,
+        _: &'a HookOutput,
+        status: &ExitStatus,
+    ) -> Self::ExitValue {
+        match status.code() {
+            Some(0) => true,
+            Some(code) => {
+                outputln!(preamble service_group, "Installation failed! '{}' exited with \
+                    status code {}", Self::file_name(), code);
+                false
+            }
+            None => {
+                outputln!(preamble service_group, "Installation failed! '{}' exited without a \
                     status code", Self::file_name());
                 false
             }
@@ -795,7 +854,7 @@ where
     T: AsRef<Path>,
 {
     if path.as_ref().exists() {
-        crypto::hash::hash_file(path).map_err(|e| Error::from(e))
+        crypto::hash::hash_file(path).map_err(Error::from)
     } else {
         Ok(String::new())
     }

@@ -53,9 +53,12 @@ use hcore::fs::pkg_install_path;
 use hcore::package::list::temp_package_directory;
 use hcore::package::metadata::PackageType;
 use hcore::package::{Identifiable, PackageArchive, PackageIdent, PackageInstall, PackageTarget};
+use hcore::service::ServiceGroup;
 use hyper::status::StatusCode;
 
 use error::{Error, Result};
+use templating;
+use templating::hooks::Hook;
 use ui::{Status, UIWriter};
 
 use retry::retry;
@@ -194,6 +197,34 @@ pub enum InstallMode {
 impl Default for InstallMode {
     fn default() -> Self {
         InstallMode::Online
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum InstallHookMode {
+    Default,
+    Force,
+    Ignore,
+}
+
+impl Default for InstallHookMode {
+    fn default() -> Self {
+        InstallHookMode::Default
+    }
+}
+
+impl FromStr for InstallHookMode {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "default" => Ok(InstallHookMode::Default),
+            "force" => Ok(InstallHookMode::Force),
+            "ignore" => Ok(InstallHookMode::Ignore),
+            _ => {
+                return Err(Error::InvalidInstallHookMode(value.to_string()))
+            }
+        }
     }
 }
 
@@ -337,6 +368,7 @@ pub fn start<U, P1, P2>(
     token: Option<&str>,
     install_mode: &InstallMode,
     local_package_usage: &LocalPackageUsage,
+    install_hook_mode: &InstallHookMode,
 ) -> Result<PackageInstall>
 where
     U: UIWriter,
@@ -363,6 +395,7 @@ where
         fs_root_path.as_ref(),
         artifact_cache_path.as_ref(),
         &key_cache_path,
+        install_hook_mode,
     )?;
 
     match *install_source {
@@ -382,6 +415,7 @@ struct InstallTask<'a> {
     /// The path to the local artifact cache (e.g., /hab/cache/artifacts)
     artifact_cache_path: &'a Path,
     key_cache_path: &'a Path,
+    install_hook_mode: &'a InstallHookMode,
 }
 
 impl<'a> InstallTask<'a> {
@@ -395,6 +429,7 @@ impl<'a> InstallTask<'a> {
         fs_root_path: &'a Path,
         artifact_cache_path: &'a Path,
         key_cache_path: &'a Path,
+        install_hook_mode: &'a InstallHookMode,
     ) -> Result<Self> {
         Ok(InstallTask {
             install_mode: install_mode,
@@ -404,6 +439,7 @@ impl<'a> InstallTask<'a> {
             fs_root_path: fs_root_path,
             artifact_cache_path: artifact_cache_path,
             key_cache_path: key_cache_path,
+            install_hook_mode: install_hook_mode,
         })
     }
 
@@ -445,7 +481,7 @@ impl<'a> InstallTask<'a> {
             }
             None => {
                 // No installed package was found
-                self.install_package(ui, &target_ident, target, token)
+                self.install_package(ui, &target_ident, target, token, self.install_hook_mode)
             }
         }
     }
@@ -476,7 +512,7 @@ impl<'a> InstallTask<'a> {
             None => {
                 // No installed package was found
                 self.store_artifact_in_cache(&target_ident, &local_archive.path)?;
-                self.install_package(ui, &target_ident, &local_archive.target, token)
+                self.install_package(ui, &target_ident, &local_archive.target, token, self.install_hook_mode)
             }
         }
     }
@@ -617,6 +653,7 @@ impl<'a> InstallTask<'a> {
         ident: &FullyQualifiedPackageIdent,
         target: &PackageTarget,
         token: Option<&str>,
+        install_hook_mode: &InstallHookMode,
     ) -> Result<PackageInstall>
     where
         T: UIWriter,
@@ -681,7 +718,10 @@ impl<'a> InstallTask<'a> {
         }
 
         // Return the thing we just installed
-        PackageInstall::load(ident.as_ref(), Some(self.fs_root_path)).map_err(Error::from)
+        let install =
+            PackageInstall::load(ident.as_ref(), Some(self.fs_root_path)).map_err(Error::from)?;
+        self.run_install_hook(ui, &install)?;
+        Ok(install)
     }
 
     /// This ensures the identified package is in the local cache,
@@ -747,6 +787,47 @@ impl<'a> InstallTask<'a> {
             }
             None => unreachable!("Install path doesn't have a parent"),
         }
+    }
+
+    fn run_install_hook<T>(&self, ui: &mut T, package: &PackageInstall) -> Result<()>
+    where
+        T: UIWriter,
+    {
+        let pkg = templating::package::Pkg::from_install(package.clone())?;
+        let service_group = ServiceGroup::new(None, pkg.name.clone(), "_", None)?;
+
+        if let Some(hook) = templating::hooks::InstallHook::load(
+            &service_group,
+            templating::fs::svc_hooks_path(&service_group.service()),
+            pkg.path.join("hooks"),
+        ) {
+            ui.status(
+                Status::Applying,
+                format!(
+                    "executing install hook for '{}'",
+                    &pkg.ident,
+                ),
+            )?;
+
+            templating::dir::SvcDir::new(&pkg).create()?;
+
+            let cfg = templating::config::Cfg::new(&pkg, None)?;
+            let ctx = templating::RenderContext::new(&pkg, &cfg);
+
+            let cfg_renderer = templating::config::CfgRenderer::new(pkg.path.join("config"))?;
+            cfg_renderer.compile(&pkg, &ctx)?;
+
+            hook.compile(&service_group, &ctx)?;
+            hook.run(&service_group, &pkg, None::<String>);
+            ui.status(
+                Status::Installed,
+                format!(
+                    "install hook for '{}' completed",
+                    &pkg.ident,
+                ),
+            )?;
+        }
+        Ok(())
     }
 
     /// Adapter function to retrieve an installed package given an

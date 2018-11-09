@@ -22,6 +22,14 @@ time = "*"
 toml = { version = "*", default-features = false }
 uuid = { version = "*", features = ["v4"] }
 
+handlebars = { version = "= 0.28.3", default-features = false }
+lazy_static = "*"
+serde = { version = "*", features = ["rc"] }
+serde_derive = "*"
+serde_json = "*"
+serde_yaml = "*"
+serde-transcode = "*"
+
 [dependencies.habitat_core]
 git = "https://github.com/habitat-sh/core.git"
 

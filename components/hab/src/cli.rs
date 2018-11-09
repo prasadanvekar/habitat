@@ -18,6 +18,7 @@ use std::result;
 use std::str::FromStr;
 
 use clap::{App, AppSettings, Arg};
+use common::command::package::install::InstallHookMode;
 use hcore::package::ident;
 use hcore::package::{Identifiable, PackageIdent};
 use hcore::{crypto::keys::PairType, service::ServiceGroup};
@@ -766,6 +767,8 @@ fn sub_pkg_install() -> App<'static, 'static> {
         (@arg BINLINK: -b --binlink "Binlink all binaries from installed package(s)")
         (@arg FORCE: -f --force "Overwrite existing binlinks")
         (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+        (@arg INSTALL_HOOK_MODE: --("install-hook") +takes_value {valid_install_hook_mode} 
+            "The install hook behavior; [default: default] [values: default, force, ignore]")
     );
     if feat::is_enabled(feat::OfflineInstall) {
         sub = sub.arg(
@@ -1053,6 +1056,16 @@ fn valid_pair_type(val: String) -> result::Result<(), String> {
         Ok(_) => Ok(()),
         Err(_) => Err(format!(
             "PAIR_TYPE: {} is invalid, must be one of (public, secret)",
+            &val
+        )),
+    }
+}
+
+fn valid_install_hook_mode(val: String) -> result::Result<(), String> {
+    match InstallHookMode::from_str(&val) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(format!(
+            "INSTALL_HOOK_MODE: {} is invalid, must be one of (default, force, ignore)",
             &val
         )),
     }

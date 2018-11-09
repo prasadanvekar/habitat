@@ -22,8 +22,10 @@ use std::string;
 use toml;
 
 use api_client;
+use handlebars;
 use hcore;
-use hcore::package::PackageIdent;
+use hcore::package::{PackageIdent, PackageInstall};
+use serde_json;
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -31,14 +33,19 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     APIClient(api_client::Error),
     ArtifactIdentMismatch((String, String, String)),
+    BadEnvConfig(String),
+    BadPackage(PackageInstall, hcore::error::Error),
     CantUploadGossipToml,
     ChannelNotFound,
     CryptoKeyError(String),
     GossipFileRelativePath(String),
     DownloadFailed(String),
     EditStatus,
+    EnvJoinPathsError(env::JoinPathsError),
     FileNameError,
+    FileNotFound(String),
     HabitatCore(hcore::Error),
+    InvalidInstallHookMode(String),
     /// Occurs when making lower level IO calls.
     IO(io::Error),
     OfflineArtifactNotFound(PackageIdent),
@@ -51,6 +58,12 @@ pub enum Error {
     WireDecode(String),
     EditorEnv(env::VarError),
     PackageNotFound(String),
+    Permissions(String),
+    RenderContextSerialization(serde_json::Error),
+    TemplateFileError(handlebars::TemplateFileError),
+    TemplateRenderError(handlebars::RenderError),
+    TomlMergeError(String),
+    TomlParser(toml::de::Error),
 }
 
 impl fmt::Display for Error {
@@ -61,6 +74,10 @@ impl fmt::Display for Error {
                 "Artifact ident {} for `{}' does not match expected ident {}",
                 ai, a, i
             ),
+            Error::BadEnvConfig(ref varname) => {
+                format!("Unable to find valid TOML or JSON in {} ENVVAR", varname)
+            }
+            Error::BadPackage(ref pkg, ref err) => format!("Bad package, {}, {}", pkg, err),
             Error::CantUploadGossipToml => {
                 format!("Can't upload gossip.toml, it's a reserved file name")
             }
@@ -72,8 +89,11 @@ impl fmt::Display for Error {
             ),
             Error::DownloadFailed(ref msg) => format!("{}", msg),
             Error::EditStatus => format!("Failed edit text command"),
+            Error::EnvJoinPathsError(ref err) => format!("{}", err),
             Error::FileNameError => format!("Failed to extract a filename"),
+            Error::FileNotFound(ref e) => format!("File not found at: {}", e),
             Error::HabitatCore(ref e) => format!("{}", e),
+            Error::InvalidInstallHookMode(ref e) => format!("Invalid InstallHookMode conversion from {}", e),
             Error::IO(ref err) => format!("{}", err),
             Error::OfflineArtifactNotFound(ref ident) => {
                 format!("Cached artifact not found in offline mode: {}", ident)
@@ -87,6 +107,7 @@ impl fmt::Display for Error {
                  locally in offline mode: {}",
                 ident
             ),
+            Error::Permissions(ref err) => format!("{}", err),
             Error::RootRequired => {
                 "Root or administrator permissions required to complete operation".to_string()
             }
@@ -96,6 +117,13 @@ impl fmt::Display for Error {
             Error::WireDecode(ref m) => format!("Failed to decode wire message: {}", m),
             Error::EditorEnv(ref e) => format!("Missing EDITOR environment variable: {}", e),
             Error::PackageNotFound(ref e) => format!("Package not found. {}", e),
+            Error::RenderContextSerialization(ref e) => {
+                format!("Unable to serialize rendering context, {}", e)
+            }
+            Error::TemplateFileError(ref err) => format!("{:?}", err),
+            Error::TemplateRenderError(ref err) => format!("{}", err),
+            Error::TomlMergeError(ref e) => format!("Failed to merge TOML: {}", e),
+            Error::TomlParser(ref err) => format!("Failed to parse TOML: {}", err),
         };
         write!(f, "{}", msg)
     }
@@ -108,6 +136,8 @@ impl error::Error for Error {
             Error::ArtifactIdentMismatch((_, _, _)) => {
                 "Artifact ident does not match expected ident"
             }
+            Error::BadEnvConfig(_) => "Unknown syntax in Env Configuration",
+            Error::BadPackage(_, _) => "Package was malformed or contained malformed contents",
             Error::CantUploadGossipToml => "Can't upload gossip.toml, it's a reserved filename",
             Error::ChannelNotFound => "Channel not found",
             Error::CryptoKeyError(_) => "Missing or invalid key",
@@ -116,23 +146,32 @@ impl error::Error for Error {
                 "Path for gossip file cannot have relative components (eg: ..)"
             }
             Error::EditStatus => "Failed edit text command",
+            Error::EnvJoinPathsError(ref err) => err.description(),
             Error::FileNameError => "Failed to extract a filename from a path",
+            Error::FileNotFound(_) => "File not found",
             Error::HabitatCore(ref err) => err.description(),
+            Error::InvalidInstallHookMode(_) => "Invalid InstallHookMode",
             Error::IO(ref err) => err.description(),
             Error::OfflineArtifactNotFound(_) => "Cached artifact not found in offline mode",
             Error::OfflineOriginKeyNotFound(_) => "Cached origin key not found in offline mode",
             Error::OfflinePackageNotFound(_) => {
                 "No installed package or cached artifact could be found locally in offline mode"
             }
+            Error::Permissions(_) => "File system permissions error",
             Error::RootRequired => {
                 "Root or administrator permissions required to complete operation"
             }
             Error::StrFromUtf8Error(_) => "Failed to convert a string as UTF-8",
             Error::StringFromUtf8Error(_) => "Failed to convert a string as UTF-8",
+            Error::TemplateFileError(ref err) => err.description(),
             Error::TomlSerializeError(_) => "Can't serialize TOML",
             Error::WireDecode(_) => "Failed to decode wire message",
             Error::EditorEnv(_) => "Missing EDITOR environment variable",
             Error::PackageNotFound(_) => "Package not found",
+            Error::RenderContextSerialization(_) => "Unable to serialize rendering context",
+            Error::TemplateRenderError(ref err) => err.description(),
+            Error::TomlMergeError(_) => "Failed to merge TOML!",
+            Error::TomlParser(_) => "Failed to parse TOML!",
         }
     }
 }
@@ -170,5 +209,29 @@ impl From<string::FromUtf8Error> for Error {
 impl From<toml::ser::Error> for Error {
     fn from(err: toml::ser::Error) -> Self {
         Error::TomlSerializeError(err)
+    }
+}
+
+impl From<env::JoinPathsError> for Error {
+    fn from(err: env::JoinPathsError) -> Self {
+        Error::EnvJoinPathsError(err)
+    }
+}
+
+impl From<handlebars::TemplateFileError> for Error {
+    fn from(err: handlebars::TemplateFileError) -> Self {
+        Error::TemplateFileError(err)
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(err: toml::de::Error) -> Self {
+        Error::TomlParser(err)
+    }
+}
+
+impl From<handlebars::RenderError> for Error {
+    fn from(err: handlebars::RenderError) -> Self {
+        Error::TemplateRenderError(err)
     }
 }

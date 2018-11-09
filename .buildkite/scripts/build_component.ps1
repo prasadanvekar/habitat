@@ -28,6 +28,8 @@ Write-Host "--- Using hab executable at $baseHabExe"
 Write-Host "--- Importing Keys"
 [HabShared]::import_keys($baseHabExe)
 
+Invoke-Expression "dir" -ErrorAction Stop
+
 Write-Host "--- Moving build folder to new location"
 New-Item -ItemType directory -Path C:\build
 Copy-Item -Path C:\workdir\* -Destination C:\build -Recurse

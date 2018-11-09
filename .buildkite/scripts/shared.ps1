@@ -10,7 +10,8 @@ class HabShared {
           $latestVersionURI = ""
           try {
               [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-              $latestVersionURI = (Invoke-WebRequest "https://bintray.com/habitat/$Channel/hab-x86_64-windows/_latestVersion" -UseBasicParsing).BaseResponse.ResponseUri.AbsoluteUri
+              $response = Invoke-WebRequest "https://bintray.com/habitat/$Channel/hab-x86_64-windows/_latestVersion" -UseBasicParsing -ErrorAction Stop
+              $latestVersionURI = ($response).BaseResponse.ResponseUri.AbsoluteUri
           }
           finally {
               [Net.ServicePointManager]::SecurityProtocol = $current_protocols

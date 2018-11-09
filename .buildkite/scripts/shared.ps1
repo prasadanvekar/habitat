@@ -34,14 +34,14 @@ class HabShared {
       $current_protocols = [Net.ServicePointManager]::SecurityProtocol
       try {
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Invoke-WebRequest -UseBasicParsing -Uri "$downloadUrl" -OutFile hab.zip
+          Invoke-WebRequest -UseBasicParsing -Uri "$downloadUrl" -OutFile hab.zip -ErrorAction Stop
       }
       finally {
           [Net.ServicePointManager]::SecurityProtocol = $current_protocols
       }
       Write-Host "--- Extracting to $bootstrapDir"
-      New-Item -ItemType directory -Path $bootstrapDir -Force
-      Expand-Archive -Path hab.zip -DestinationPath $bootstrapDir -Force
+      New-Item -ItemType directory -Path $bootstrapDir -Force -ErrorAction Stop
+      Expand-Archive -Path hab.zip -DestinationPath $bootstrapDir -ErrorAction Stop
       Remove-Item hab.zip -Force
       $baseHabExe = (Get-Item "$bootstrapDir\hab-$targetVersion-x86_64-windows\hab.exe").FullName
 
@@ -50,11 +50,9 @@ class HabShared {
 
   static [void]import_keys([String]$HabExe) {
       Write-Host "--- :key: Downloading 'core' public keys from Builder"
-      Invoke-Expression "$HabExe origin key download core"
+      Invoke-Expression "$HabExe origin key download core" -ErrorAction Stop
       Write-Host "--- :closed_lock_with_key: Downloading latest 'core' secret key from Builder"
-      Invoke-Expression "$HabExe origin key download --auth=$Env:HAB_AUTH_TOKEN --secret core"
-      # Write-Host "--- Making a fakey fake origin key for now"
-      # Invoke-Expression "$HabExe origin key generate core"
+      Invoke-Expression "$HabExe origin key download --auth=$Env:HAB_AUTH_TOKEN --secret core" -ErrorAction Stop
       $Env:HAB_CACHE_KEY_PATH = "C:\hab\cache\keys"
       $Env:HAB_ORIGIN = "core"
   }

@@ -36,6 +36,6 @@ New-Item -ItemType directory -Path C:\build
 Copy-Item -Path C:\workdir\* -Destination C:\build -Recurse
 
 Push-Location "C:\build"
-Invoke-Expression "$baseHabExe pkg build components\$Component"
-Invoke-Expression "dir results"
+Invoke-Expression "$baseHabExe pkg build components\$Component" -ErrorAction Stop
+Invoke-Expression "dir results" -ErrorAction Stop
 Pop-Location

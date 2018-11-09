@@ -29,9 +29,8 @@ steps:
     env:
       HAB_BLDR_CHANNEL: unstable
     plugins:
-      https://github.com/chef/docker-buildkite-plugin#snappj/add-support-for-windows-images:
+      - docker#v2.0.0
         image: "chefes/windows-base:latest"
-        windows-image: true
         environment:
           - HAB_BLDR_CHANNEL
 

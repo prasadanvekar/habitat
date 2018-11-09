@@ -21,6 +21,8 @@ if($Component.Equals("")) {
 Write-Host "--- Setting source package channel to $SourceChannel"
 $Env:HAB_BLDR_CHANNEL="$SourceChannel"
 
+Write-Host "--- POINT AT ACCEPTANCE!"
+$Env:HAB_BLDR_URL="https://bldr.acceptance.habitat.sh"
 
 Write-Host "--- Installing base habitat binary version: $BaseHabVersion"
 $baseHabExe = [HabShared]::install_base_habitat_binary($BaseHabVersion, $SourceChannel)
@@ -35,4 +37,5 @@ Copy-Item -Path C:\workdir\* -Destination C:\build -Recurse
 
 Push-Location "C:\build"
 Invoke-Expression "$baseHabExe pkg build components\$Component"
+Invoke-Expression "dir results"
 Pop-Location

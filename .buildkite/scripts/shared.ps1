@@ -49,12 +49,12 @@ class HabShared {
   }
 
   static [void]import_keys([String]$HabExe) {
-      # Write-Host "--- :key: Downloading 'core' public keys from Builder"
-      # Invoke-Expression "$HabExe origin key download core"
-      # # Write-Host "--- :closed_lock_with_key: Downloading latest 'core' secret key from Builder"
-      # Invoke-Expression "$HabExe origin key download --auth=$Env:HAB_AUTH_TOKEN --secret core"
-      Write-Host "--- Making a fakey fake origin key for now"
-      Invoke-Expression "$HabExe origin key generate core"
+      Write-Host "--- :key: Downloading 'core' public keys from Builder"
+      Invoke-Expression "$HabExe origin key download core"
+      Write-Host "--- :closed_lock_with_key: Downloading latest 'core' secret key from Builder"
+      Invoke-Expression "$HabExe origin key download --auth=$Env:HAB_AUTH_TOKEN --secret core"
+      # Write-Host "--- Making a fakey fake origin key for now"
+      # Invoke-Expression "$HabExe origin key generate core"
       $Env:HAB_CACHE_KEY_PATH = "C:\hab\cache\keys"
       $Env:HAB_ORIGIN = "core"
   }

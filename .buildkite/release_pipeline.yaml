@@ -30,9 +30,9 @@ steps:
       HAB_BLDR_CHANNEL: unstable
     plugins:
       - docker#v2.0.0
-        image: "chefes/windows-base:latest"
-        environment:
-          - HAB_BLDR_CHANNEL
+          image: "chefes/windows-base:latest"
+          environment:
+            - HAB_BLDR_CHANNEL
 
   - label: ":mac: :habicat: core/hab"
     command: .buildkite/scripts/build_mac_release.sh

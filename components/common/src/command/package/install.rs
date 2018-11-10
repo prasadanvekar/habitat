@@ -479,7 +479,7 @@ impl<'a> InstallTask<'a> {
             }
             None => {
                 // No installed package was found
-                self.install_package(ui, &target_ident, target, token, self.install_hook_mode)
+                self.install_package(ui, &target_ident, target, token)
             }
         }
     }
@@ -501,6 +501,14 @@ impl<'a> InstallTask<'a> {
             Some(package_install) => {
                 // The installed package was found on disk
                 ui.status(Status::Using, &target_ident)?;
+                if self.install_hook_mode == &InstallHookMode::Force {
+                    self.run_all_install_hooks(
+                        ui,
+                        &target_ident,
+                        &local_archive.target,
+                        token,                        
+                    )?;
+                }
                 ui.end(format!(
                     "Install of {} complete with {} new packages installed.",
                     &target_ident, 0
@@ -515,7 +523,6 @@ impl<'a> InstallTask<'a> {
                     &target_ident,
                     &local_archive.target,
                     token,
-                    self.install_hook_mode,
                 )
             }
         }
@@ -657,7 +664,6 @@ impl<'a> InstallTask<'a> {
         ident: &FullyQualifiedPackageIdent,
         target: &PackageTarget,
         token: Option<&str>,
-        install_hook_mode: &InstallHookMode,
     ) -> Result<PackageInstall>
     where
         T: UIWriter,
@@ -680,7 +686,7 @@ impl<'a> InstallTask<'a> {
                         .is_some()
                     {
                         ui.status(Status::Using, dependency)?;
-                        if install_hook_mode == &InstallHookMode::Force {
+                        if self.install_hook_mode == &InstallHookMode::Force {
                             self.run_install_hook(
                                 ui,
                                 &PackageInstall::load(dependency, Some(self.fs_root_path))?,
@@ -703,7 +709,7 @@ impl<'a> InstallTask<'a> {
                 // Ensure all uninstalled artifacts get installed
                 for artifact in artifacts_to_install.iter_mut() {
                     self.unpack_artifact(ui, artifact)?;
-                    if install_hook_mode != &InstallHookMode::Ignore {
+                    if self.install_hook_mode != &InstallHookMode::Ignore {
                         self.run_install_hook(
                             ui,
                             &PackageInstall::load(&artifact.ident()?, Some(self.fs_root_path))?,
@@ -800,6 +806,32 @@ impl<'a> InstallTask<'a> {
             }
             None => unreachable!("Install path doesn't have a parent"),
         }
+    }
+
+    fn run_all_install_hooks<T>(
+        &self,
+        ui: &mut T,
+        ident: &FullyQualifiedPackageIdent,
+        target: &PackageTarget,
+        token: Option<&str>,
+    ) -> Result<()>
+    where
+        T: UIWriter,
+    {
+        let mut artifact = self.get_cached_artifact(ui, ident, target, token)?;
+        let dependencies = artifact.tdeps()?;
+
+        for dependency in dependencies.iter() {
+            self.run_install_hook(
+                ui,
+                &PackageInstall::load(dependency, Some(self.fs_root_path))?,
+            )?;
+        }
+
+        self.run_install_hook(
+            ui,
+            &PackageInstall::load(&artifact.ident()?, Some(self.fs_root_path))?,
+        )
     }
 
     fn run_install_hook<T>(&self, ui: &mut T, package: &PackageInstall) -> Result<()>

@@ -37,3 +37,5 @@ Invoke-Expression "$baseHabExe pkg build components\$Component --keys core" -Err
 . "components\$Component\habitat\results\last_build.ps1"
 Invoke-Expression "$baseHabExe pkg upload components\$Component\habitat\results\$pkg_artifact" -ErrorAction Stop
 Pop-Location
+
+exit $LASTEXITCODE

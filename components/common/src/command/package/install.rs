@@ -221,9 +221,7 @@ impl FromStr for InstallHookMode {
             "default" => Ok(InstallHookMode::Default),
             "force" => Ok(InstallHookMode::Force),
             "ignore" => Ok(InstallHookMode::Ignore),
-            _ => {
-                return Err(Error::InvalidInstallHookMode(value.to_string()))
-            }
+            _ => return Err(Error::InvalidInstallHookMode(value.to_string())),
         }
     }
 }
@@ -512,7 +510,13 @@ impl<'a> InstallTask<'a> {
             None => {
                 // No installed package was found
                 self.store_artifact_in_cache(&target_ident, &local_archive.path)?;
-                self.install_package(ui, &target_ident, &local_archive.target, token, self.install_hook_mode)
+                self.install_package(
+                    ui,
+                    &target_ident,
+                    &local_archive.target,
+                    token,
+                    self.install_hook_mode,
+                )
             }
         }
     }
@@ -676,6 +680,12 @@ impl<'a> InstallTask<'a> {
                         .is_some()
                     {
                         ui.status(Status::Using, dependency)?;
+                        if install_hook_mode == &InstallHookMode::Force {
+                            self.run_install_hook(
+                                ui,
+                                &PackageInstall::load(dependency, Some(self.fs_root_path))?,
+                            )?;
+                        }
                     } else {
                         artifacts_to_install.push(self.get_cached_artifact(
                             ui,
@@ -693,6 +703,12 @@ impl<'a> InstallTask<'a> {
                 // Ensure all uninstalled artifacts get installed
                 for artifact in artifacts_to_install.iter_mut() {
                     self.unpack_artifact(ui, artifact)?;
+                    if install_hook_mode != &InstallHookMode::Ignore {
+                        self.run_install_hook(
+                            ui,
+                            &PackageInstall::load(&artifact.ident()?, Some(self.fs_root_path))?,
+                        )?;
+                    }
                 }
 
                 ui.end(format!(
@@ -718,10 +734,7 @@ impl<'a> InstallTask<'a> {
         }
 
         // Return the thing we just installed
-        let install =
-            PackageInstall::load(ident.as_ref(), Some(self.fs_root_path)).map_err(Error::from)?;
-        self.run_install_hook(ui, &install)?;
-        Ok(install)
+        PackageInstall::load(ident.as_ref(), Some(self.fs_root_path)).map_err(Error::from)
     }
 
     /// This ensures the identified package is in the local cache,
@@ -803,10 +816,7 @@ impl<'a> InstallTask<'a> {
         ) {
             ui.status(
                 Status::Applying,
-                format!(
-                    "executing install hook for '{}'",
-                    &pkg.ident,
-                ),
+                format!("executing install hook for '{}'", &pkg.ident,),
             )?;
 
             templating::dir::SvcDir::new(&pkg).create()?;
@@ -821,10 +831,7 @@ impl<'a> InstallTask<'a> {
             hook.run(&service_group, &pkg, None::<String>);
             ui.status(
                 Status::Installed,
-                format!(
-                    "install hook for '{}' completed",
-                    &pkg.ident,
-                ),
+                format!("install hook for '{}' completed", &pkg.ident,),
             )?;
         }
         Ok(())

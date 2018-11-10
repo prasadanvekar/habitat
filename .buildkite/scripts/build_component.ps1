@@ -12,7 +12,7 @@ param (
 )
 
 # Import shared functions
-. "$PSScriptRoot\shared.ps1"
+. "$PSScriptRoot\shared.ps1" -ErrorAction Stop
 
 if($Component.Equals("")) {
     Write-Error "--- :error: Component to build not specified, please use the -Component flag" -ErrorAction Stop
@@ -38,4 +38,4 @@ Invoke-Expression "$baseHabExe pkg build components\$Component --keys core" -Err
 Invoke-Expression "$baseHabExe pkg upload components\$Component\habitat\results\$pkg_artifact" -ErrorAction Stop
 Pop-Location
 
-exit $LASTEXITCODE
+# exit $LASTEXITCODE

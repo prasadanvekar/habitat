@@ -56,7 +56,7 @@ class HabShared {
       Write-Host "--- :key: Downloading 'core' public keys from Builder"
       Invoke-Expression "$HabExe origin key download core" -ErrorAction Stop
       Write-Host "--- :closed_lock_with_key: Downloading latest 'core' secret key from Builder"
-      Invoke-Expression "$HabExe origin key download --auth $Env:HAB_AUTH_TOKEN --secret" -ErrorAction Stop
+      Invoke-Expression "$HabExe origin key download core --auth $Env:HAB_AUTH_TOKEN --secret" -ErrorAction Stop
       $Env:HAB_CACHE_KEY_PATH = "C:\hab\cache\keys"
       $Env:HAB_ORIGIN = "core"
   }
